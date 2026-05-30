@@ -1,5 +1,6 @@
 import cv2
 import mediapipe as mp
+import math
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 
@@ -18,42 +19,41 @@ class HandTracker:
         h, w, _ = frame.shape
 
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        mp_image = mp.Image(
-            image_format=mp.ImageFormat.SRGB,
-            data=rgb
-        )
+        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
 
         result = self.detector.detect(mp_image)
 
         fingertip = None
+        pinch = False
 
         if result.hand_landmarks:
             landmarks = result.hand_landmarks[0]
 
-            # draw points
+            # draw skeleton
             for lm in landmarks:
                 cx, cy = int(lm.x * w), int(lm.y * h)
-                cv2.circle(frame, (cx, cy), 3, (255, 255, 0), -1)
+                cv2.circle(frame, (cx, cy), 3, (0,255,255), -1)
 
-            # skeleton
-            connections = [(0,1),(1,2),(2,3),(3,4),
-                           (5,6),(6,7),(7,8),
-                           (9,10),(10,11),(11,12),
-                           (13,14),(14,15),(15,16),
-                           (17,18),(18,19),(19,20)]
+            # index finger
+            ix = int(landmarks[8].x * w)
+            iy = int(landmarks[8].y * h)
+            fingertip = (ix, iy)
 
-            for c in connections:
-                x1 = int(landmarks[c[0]].x * w)
-                y1 = int(landmarks[c[0]].y * h)
-                x2 = int(landmarks[c[1]].x * w)
-                y2 = int(landmarks[c[1]].y * h)
-                cv2.line(frame, (x1, y1), (x2, y2), (0, 255, 255), 2)
+            cv2.circle(frame, fingertip, 10, (0,0,255), -1)
 
-            # index fingertip
-            lm = landmarks[8]
-            fx, fy = int(lm.x * w), int(lm.y * h)
-            cv2.circle(frame, (fx, fy), 10, (0, 0, 255), -1)
+            # thumb tip
+            tx = int(landmarks[4].x * w)
+            ty = int(landmarks[4].y * h)
 
-            fingertip = (fx, fy)
+            # distance
+            dist = math.hypot(ix - tx, iy - ty)
 
-        return frame, fingertip
+            # pinch detection
+            if dist < 30:
+                pinch = True
+                cv2.putText(frame, "CLICK",
+                            (ix, iy-20),
+                            cv2.FONT_HERSHEY_SIMPLEX,
+                            0.7, (0,255,0), 2)
+
+        return frame, fingertip, pinch
