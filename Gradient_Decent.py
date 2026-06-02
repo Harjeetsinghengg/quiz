@@ -1,31 +1,20 @@
-import tkinter as tk
+import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
-# Window
-root = tk.Tk()
-root.title("AI Learning - Study vs Marks")
-root.geometry("950x650")
+st.title("🤖 AI Learning - Study vs Marks")
 
-# Graph
-fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8,4))
-canvas = FigureCanvasTkAgg(fig, master=root)
-canvas.get_tk_widget().pack()
-
-# Info label (steps for kids)
-info = tk.Label(root, text="", font=("Arial", 10), justify="left")
-info.pack(pady=10)
-
-# Data
+# Data (relatable for kids)
 x_data = np.array([1, 2, 3, 4, 5, 6])
 y_data = np.array([30, 40, 50, 65, 75, 85])
 
-# Model variables
-weight = 0.0
+# Session state (to store values)
+if "weight" not in st.session_state:
+    st.session_state.weight = 0.0
+    st.session_state.loss_history = []
+    st.session_state.step = 0
+
 learning_rate = 0.05
-loss_history = []
-step_count = 0
 
 # Functions
 def predict(x, w):
@@ -41,87 +30,73 @@ def compute_gradient(w):
 
 # Training step
 def train_step():
-    global weight, step_count
+    w = st.session_state.weight
 
-    y_pred = predict(x_data, weight)
-    loss = compute_loss(weight)
-    grad = compute_gradient(weight)
+    loss = compute_loss(w)
+    grad = compute_gradient(w)
 
-    # Update rule
-    new_weight = weight - learning_rate * grad
+    new_w = w - learning_rate * grad
 
-    loss_history.append(loss)
-    step_count += 1
-
-    # Plot data
-    ax1.clear()
-    ax1.scatter(x_data, y_data, color='blue', label="Real Data")
-    ax1.plot(x_data, predict(x_data, new_weight), 'r', label="AI Line")
-    ax1.set_title("Study Hours vs Marks")
-    ax1.set_xlabel("Hours")
-    ax1.set_ylabel("Marks")
-    ax1.legend()
-
-    # Plot loss
-    ax2.clear()
-    ax2.plot(loss_history, color='purple')
-    ax2.set_title("Error Reducing")
-    ax2.set_xlabel("Steps")
-    ax2.set_ylabel("Error")
-
-    canvas.draw()
-
-    # Show simple steps (kid friendly)
-    info.config(text=
-        f"STEP {step_count}\n\n"
-        f"1️⃣ Equation: Marks = Weight × Hours\n\n"
-        f"2️⃣ Current Weight = {weight:.2f}\n\n"
-        f"3️⃣ Predictions:\n"
-        f"   Example: 1h → {weight:.2f} mark\n\n"
-        f"4️⃣ Compare with real marks → find ERROR\n"
-        f"   Error = {loss:.2f}\n\n"
-        f"5️⃣ Derivative (Gradient) = {grad:.2f}\n"
-        f"   👉 tells how to improve\n\n"
-        f"6️⃣ Update Weight:\n"
-        f"   new = {weight:.2f} - 0.05 × ({grad:.2f})\n"
-        f"   new weight = {new_weight:.2f}\n\n"
-        f"✅ AI improves step by step!"
-    )
-
-    # Apply update AFTER showing steps
-    weight = new_weight
+    st.session_state.weight = new_w
+    st.session_state.loss_history.append(loss)
+    st.session_state.step += 1
 
 # Buttons
-def next_step():
+col1, col2, col3 = st.columns(3)
+
+if col1.button("▶️ Next Step"):
     train_step()
 
-def complete_training():
+if col2.button("✅ Complete Training"):
     for _ in range(30):
         train_step()
-        root.update()
-        root.after(150)
 
-def reset():
-    global weight, loss_history, step_count
-    weight = 0.0
-    loss_history = []
-    step_count = 0
+if col3.button("🔄 Reset"):
+    st.session_state.weight = 0.0
+    st.session_state.loss_history = []
+    st.session_state.step = 0
 
-    ax1.clear()
-    ax2.clear()
-    canvas.draw()
+# Current values
+w = st.session_state.weight
+loss = compute_loss(w)
 
-    info.config(text="Press 'Next Step' to start learning ✅")
+# Plot
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10,4))
 
-# Button frame
-frame = tk.Frame(root)
-frame.pack(pady=10)
+# Graph 1: Data + AI line
+ax1.scatter(x_data, y_data, color='blue', label="Students data")
+ax1.plot(x_data, predict(x_data, w), 'r', label="AI line")
+ax1.set_title("Study vs Marks")
+ax1.set_xlabel("Hours")
+ax1.set_ylabel("Marks")
+ax1.legend()
 
-tk.Button(frame, text="Next Step ▶️", command=next_step).pack(side="left", padx=10)
-tk.Button(frame, text="Complete ✅", command=complete_training).pack(side="left", padx=10)
-tk.Button(frame, text="Reset 🔄", command=reset).pack(side="left", padx=10)
+# Graph 2: Loss curve
+ax2.plot(st.session_state.loss_history, color='purple')
+ax2.set_title("Error decreasing")
+ax2.set_xlabel("Steps")
+ax2.set_ylabel("Error")
 
-# Initial message
-reset()
+st.pyplot(fig)
 
-root.mainloop()
+# Step explanation
+st.markdown(f"""
+### 📚 Learning Steps
+
+**Step:** {st.session_state.step}
+
+**1️⃣ Equation:**  
+Marks = weight × hours  
+
+**2️⃣ Current weight:** {w:.2f}
+
+**3️⃣ Error (loss):** {loss:.2f}
+
+**4️⃣ Gradient (derivative):** {compute_gradient(w):.2f}  
+👉 tells how to improve  
+
+**5️⃣ Update:**  
+new weight = old - learning_rate × gradient  
+
+✅ AI is learning step by step!
+""")
